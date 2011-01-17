@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # 
-# Copyright © 2009-2010 Nick Peelman
+# Copyright © 2009-2011 Nick Peelman
 # 
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -28,9 +28,15 @@
 # November 12, 2009
 #
 # Changelog:
-# v0.1 - 2009/11/12 - Creation!
+# v0.1 - 2009/11/12
+#	Creation!
 #
-# v0.2 - 2010/03/15 - Updated Logging, added LogLevel variable, updating package
+# v0.2 - 2010/03/15
+#	Updated Logging
+#	Added LogLevel variable
+#	Updating package
+#
+# v0.3 - 2011/01/12
 
 $configfile		= "/Library/Preferences/us.peelman.ipchecker.launchd";
 $cachedIPfile	= "/var/tmp/ipchecker.cache";
@@ -40,35 +46,7 @@ $curlflags		= "-f -s -k";
 $checkIPURL 	= "http://peelman.us/checkip.php";
 $loglevel		= 0;
 
-# Load Config File
-if ( (! -e $configfile ) || (! -r $configfile ) ) {
-	#print "IPChecker - No Config File Found!\n";
-	`logger IPChecker Error - No Config File Found!`;
-	exit 1;
-}
-
-open CONFIG, "<", $configfile or die "IPChecker - Error Reading Config File - $!";
-if (! CONFIG){
-	#print "IPChecker - Error Reading Config File!\n";
-	`logger IPChecker Error - Problem Reading Config File`;
-}
-
-while (<CONFIG>) {
-    chomp;                  # no newline
-    s/#.*//;                # no comments
-    s/^\s+//;               # no leading white
-    s/\s+$//;               # no trailing white
-    next unless length;     # anything left?
-    my ($var, $value) = split(/\s*=\s*/, $_, 2);
- 	$$var = $value;
-}
-
-# Check Imported Config
-if ( (!$username) || (!$password) || (!$hostname)  ){
-	#print "IPChecker - Config File Error!\n";
-	`logger IPChecker Error - Config File must have at least a Username, Password, and Hostname set!`;
-	exit 1;	
-}
+processConfig();
 
 # Check if CURL is present
 if ( (! -e $curl ) || (! -x $curl ) ) {
@@ -83,7 +61,9 @@ my $command = "$curl $curlflags --basic --user $username:$password 'https://dyna
 # Check for a cached IP
 if ( (! -e $cachedIPfile ) ) {
 	#print "IPChecker - No IP Cached, Updating IP!\n";
-	`logger IPChecker - No IP Cached, Updating IP!`;
+	if ( $loglevel > 0 )
+		`logger IPChecker - No IP Cached, Updating IP!`;
+		
 	`$curl $curlflags $checkIPURL > $cachedIPfile`;
 	`$command`;
 	exit 0;
@@ -99,8 +79,40 @@ if ( $cachedIP != `$curl $curlflags $checkIPURL` ) {
 	`$command`;
 	exit 0;
 } else {
-	if ($loglevel > 0)
+	if ( $loglevel > 0 )
 		`logger IPChecker - No Change`;
+}
+
+sub processConfig {
+	# Load Config File
+	if ( (! -e $configfile ) || (! -r $configfile ) ) {
+		#print "IPChecker - No Config File Found!\n";
+		`logger IPChecker Error - No Config File Found!`;
+		exit 1;
+	}
+
+	open CONFIG, "<", $configfile or die "IPChecker - Error Reading Config File - $!";
+	if (! CONFIG){
+		#print "IPChecker - Error Reading Config File!\n";
+		`logger IPChecker Error - Problem Reading Config File`;
+	}
+
+	while (<CONFIG>) {
+	    chomp;                  # no newline
+	    s/#.*//;                # no comments
+	    s/^\s+//;               # no leading white
+	    s/\s+$//;               # no trailing white
+	    next unless length;     # anything left?
+	    my ($var, $value) = split(/\s*=\s*/, $_, 2);
+	 	$$var = $value;
+	}
+
+	# Check Imported Config
+	if ( (!$username) || (!$password) || (!$hostname)  ){
+		#print "IPChecker - Config File Error!\n";
+		`logger IPChecker Error - Config File must have at least a Username, Password, and Hostname set!`;
+		exit 1;	
+	}
 }
 
 exit 0;
